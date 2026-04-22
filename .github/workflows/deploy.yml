@@ -55,6 +55,7 @@ jobs:
             trap rollback ERR
 
             # Pull latest code safely
+            git reset --hard HEAD
             git fetch origin "${TARGET_BRANCH}"
             git checkout "${TARGET_BRANCH}"
             git pull --ff-only origin "${TARGET_BRANCH}"

@@ -73,6 +73,7 @@ echo "[2.1] Cloning GoClaw repository..."
 if [ -d "$GOCLAW_DIR/.git" ]; then
     echo "  Repository exists, pulling latest..."
     cd "$GOCLAW_DIR"
+    git reset --hard HEAD
     git fetch origin main
     git checkout main
     git pull --ff-only origin main
