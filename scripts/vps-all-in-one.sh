@@ -104,18 +104,9 @@ fi
 chmod 600 .env
 echo "  ✅ .env configured"
 
-echo "[2.3] Applying VPS resource override (1 vCPU safe)..."
-cat > "$GOCLAW_DIR/docker-compose.override.yml" << 'OVERRIDE_EOF'
-services:
-  goclaw:
-    deploy:
-      resources:
-        limits:
-          cpus: "0.90"
-          memory: 768M
-          pids: 200
-OVERRIDE_EOF
-echo "  ✅ Created docker-compose.override.yml"
+echo "[2.3] Patching compose CPU limit for 1 vCPU VPS..."
+sed -i "s/cpus: '2.0'/cpus: '0.90'/g" docker-compose.yml docker-compose.browser.yml || true
+echo "  ✅ Compose CPU limit patched"
 
 echo ""
 echo "━━━ PHASE 2 COMPLETE ━━━"

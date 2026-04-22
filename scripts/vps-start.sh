@@ -15,16 +15,7 @@ echo "[1/4] Starting GoClaw Docker services..."
 cd /opt/goclaw
 
 # Ensure 1 vCPU VPS can run compose limits safely
-cat > /opt/goclaw/docker-compose.override.yml << 'OVERRIDE_EOF'
-services:
-  goclaw:
-    deploy:
-      resources:
-        limits:
-          cpus: "0.90"
-          memory: 768M
-          pids: 200
-OVERRIDE_EOF
+sed -i "s/cpus: '2.0'/cpus: '0.90'/g" docker-compose.yml docker-compose.browser.yml || true
 
 make up
 
