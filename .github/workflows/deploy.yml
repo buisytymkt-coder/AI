@@ -20,29 +20,54 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script_stop: true
           script: |
-            set -e
+            set -Eeuo pipefail
             echo "=== Starting GoClaw Deployment ==="
-            
+
             cd /opt/goclaw
-            
-            # Pull latest code
-            git fetch origin main
-            git reset --hard origin/main
-            
-            # Pull latest Docker images & restart
+
+            PREV_COMMIT="$(git rev-parse HEAD)"
+            TARGET_BRANCH="main"
+
+            health_check() {
+              for i in $(seq 1 36); do
+                if curl -sf http://localhost:18790/health > /dev/null 2>&1; then
+                  echo "✅ GoClaw is healthy!"
+                  return 0
+                fi
+                echo "  Attempt $i/36 - waiting..."
+                sleep 5
+              done
+              return 1
+            }
+
+            rollback() {
+              echo "❌ Deploy failed. Rolling back to ${PREV_COMMIT}..."
+              git reset --hard "${PREV_COMMIT}"
+              make up
+              if health_check; then
+                echo "✅ Rollback completed and healthy."
+              else
+                echo "❌ Rollback failed to become healthy."
+                exit 1
+              fi
+            }
+
+            trap rollback ERR
+
+            # Pull latest code safely
+            git fetch origin "${TARGET_BRANCH}"
+            git checkout "${TARGET_BRANCH}"
+            git pull --ff-only origin "${TARGET_BRANCH}"
+
+            # Restart services
             make up
-            
+
             # Wait for health check
             echo "Waiting for GoClaw to be healthy..."
-            for i in $(seq 1 30); do
-              if curl -sf http://localhost:18790/health > /dev/null 2>&1; then
-                echo "✅ GoClaw is healthy!"
-                break
-              fi
-              echo "  Attempt $i/30 - waiting..."
-              sleep 5
-            done
-            
+            health_check
+
+            trap - ERR
+
             # Final status
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
             echo "=== Deployment Complete ==="

@@ -13,17 +13,37 @@ echo "============================================"
 # --- 1. Start Docker services ---
 echo "[1/4] Starting GoClaw Docker services..."
 cd /opt/goclaw
+
+# Ensure 1 vCPU VPS can run compose limits safely
+cat > /opt/goclaw/docker-compose.override.yml << 'OVERRIDE_EOF'
+services:
+  goclaw:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.90"
+          memory: 768M
+          pids: 200
+OVERRIDE_EOF
+
 make up
 
 echo "Waiting for GoClaw to be healthy..."
+HEALTHY=false
 for i in $(seq 1 30); do
     if curl -sf http://localhost:18790/health > /dev/null 2>&1; then
         echo "  ✅ GoClaw is healthy!"
+        HEALTHY=true
         break
     fi
     echo "  Attempt $i/30 - waiting 5s..."
     sleep 5
 done
+
+if [ "$HEALTHY" = false ]; then
+    echo "  ⚠️  GoClaw health check timeout. Showing recent logs..."
+    docker compose -f docker-compose.yml -f docker-compose.postgres.yml logs --tail=80 goclaw || true
+fi
 
 # Verify
 docker ps

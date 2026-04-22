@@ -14,6 +14,7 @@ export DEBIAN_FRONTEND=noninteractive
 DOMAIN="abc.jocohome.shop"
 REPO_URL="https://github.com/buisytymkt-coder/AI.git"
 GOCLAW_DIR="/opt/goclaw"
+SSH_PORT="${SSH_PORT:-25301}"
 
 echo ""
 echo "╔══════════════════════════════════════════════╗"
@@ -51,7 +52,10 @@ sudo apt install -y nginx certbot python3-certbot-nginx git make ufw fail2ban
 echo "[1.4] Configuring Firewall..."
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
+sudo ufw allow 22/tcp
 sudo ufw allow 25300/tcp
+sudo ufw allow 25301/tcp
+sudo ufw allow "${SSH_PORT}/tcp"
 echo "y" | sudo ufw enable 2>/dev/null || true
 echo "  ✅ Firewall configured"
 sudo ufw status numbered
@@ -70,7 +74,8 @@ if [ -d "$GOCLAW_DIR/.git" ]; then
     echo "  Repository exists, pulling latest..."
     cd "$GOCLAW_DIR"
     git fetch origin main
-    git reset --hard origin/main
+    git checkout main
+    git pull --ff-only origin main
 else
     sudo rm -rf "$GOCLAW_DIR"
     sudo git clone "$REPO_URL" "$GOCLAW_DIR"
@@ -98,6 +103,19 @@ fi
 
 chmod 600 .env
 echo "  ✅ .env configured"
+
+echo "[2.3] Applying VPS resource override (1 vCPU safe)..."
+cat > "$GOCLAW_DIR/docker-compose.override.yml" << 'OVERRIDE_EOF'
+services:
+  goclaw:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.90"
+          memory: 768M
+          pids: 200
+OVERRIDE_EOF
+echo "  ✅ Created docker-compose.override.yml"
 
 echo ""
 echo "━━━ PHASE 2 COMPLETE ━━━"
@@ -289,17 +307,14 @@ echo ""
 echo "  🔑 GitHub Actions Secrets to configure:"
 echo "  ┌──────────────────────────────────────────────┐"
 echo "  │ VPS_HOST    → 104.36.23.199                  │"
-echo "  │ VPS_PORT    → 25300                          │"
-echo "  │ VPS_USER    → Administrator                  │"
-echo "  │ VPS_SSH_KEY → (private key below)            │"
+echo "  │ VPS_PORT    → ${SSH_PORT}                          │"
+echo "  │ VPS_USER    → root                           │"
+echo "  │ VPS_SSH_KEY → /opt/goclaw/deploy_key         │"
 echo "  └──────────────────────────────────────────────┘"
 echo ""
-
-if [ -f "$GOCLAW_DIR/deploy_key" ]; then
-    echo "  ====== PRIVATE KEY (copy to GitHub Secret VPS_SSH_KEY) ======"
-    cat "$GOCLAW_DIR/deploy_key"
-    echo "  ============================================================="
-fi
+echo "  For security, private key is NOT printed."
+echo "  Show manually on VPS when needed:"
+echo "    cat /opt/goclaw/deploy_key"
 
 echo ""
 echo "  📌 Useful commands:"
