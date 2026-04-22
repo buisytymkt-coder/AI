@@ -1,0 +1,48 @@
+name: Deploy GoClaw to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 🚀 Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            echo "=== Starting GoClaw Deployment ==="
+            
+            cd /opt/goclaw
+            
+            # Pull latest code
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Pull latest Docker images & restart
+            make up
+            
+            # Wait for health check
+            echo "Waiting for GoClaw to be healthy..."
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:18790/health > /dev/null 2>&1; then
+                echo "✅ GoClaw is healthy!"
+                break
+              fi
+              echo "  Attempt $i/30 - waiting..."
+              sleep 5
+            done
+            
+            # Final status
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            echo "=== Deployment Complete ==="
