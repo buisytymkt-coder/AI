@@ -8,7 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: 🚀 Deploy to VPS
@@ -63,8 +63,10 @@ jobs:
             # 1 vCPU VPS safety: lower compose CPU limit before make up
             sed -i "s/cpus: '2.0'/cpus: '0.90'/g" docker-compose.yml docker-compose.browser.yml || true
 
-            # Restart services
-            make up
+            # Build from the freshly pulled source, then restart services.
+            # `make up` only pulls the latest published image, so source-only
+            # hotfixes would not reach the VPS.
+            make up-build
 
             # Wait for health check
             echo "Waiting for GoClaw to be healthy..."
